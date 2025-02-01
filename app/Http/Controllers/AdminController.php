@@ -45,14 +45,17 @@ class AdminController extends Controller
             if ($website->save()) {
                 Log::info("Website saved successfully: ", ['id' => $website->id]);
 
+                // Create the website directory
                 $directoryPath = "/var/www/" . $website->document_root;
                 if (!file_exists($directoryPath)) {
-                    $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
+                    $mkdirCommand = "sudo mkdir -p {$directoryPath} && sudo chown www-data:www-data {$directoryPath} && sudo chmod 755 {$directoryPath}";
                     Log::info("Executing: " . $mkdirCommand);
-                    shell_exec($mkdirCommand);
+                    $mkdirOutput = shell_exec($mkdirCommand . " 2>&1");
+                    Log::info("mkdir output: " . $mkdirOutput);
                 }
 
-                $confContent = "
+                // Prepare Apache configuration
+                                $confContent = "
                 <VirtualHost *:80>
                     DocumentRoot /var/www/{$website->document_root}
                     ServerName {$website->server_name}
@@ -73,15 +76,36 @@ class AdminController extends Controller
                 file_put_contents($confFilePath, $confContent);
                 Log::info("Apache config file created at " . $confFilePath);
 
-                shell_exec("a2ensite {$website->domain_name}.conf");
-                Log::info("site enabled");
+                // Enable the site
+                if (file_exists($confFilePath)) {
+                    $a2ensiteCommand = "sudo a2ensite {$website->domain_name}.conf 2>&1";
+                    $a2ensiteOutput = shell_exec($a2ensiteCommand);
+                    Log::info("a2ensite output: " . $a2ensiteOutput);
+                } else {
+                    Log::error("Apache config file not found: " . $confFilePath);
+                    return redirect()->back()->with('error', 'Apache config file not found.');
+                }
 
-                $certbotCommand = "sudo certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos --expand -m admin@{$website->domain_name} --redirect";
-                $certbotOutput = shell_exec($certbotCommand . " 2>&1");
-                Log::info("Certbot output: " . $certbotOutput);
+                // Reload Apache
+                $apacheReloadCommand = "sudo systemctl reload apache2 2>&1";
+                $apacheReloadOutput = shell_exec($apacheReloadCommand);
+                Log::info("Apache reload output: " . $apacheReloadOutput);
 
-                shell_exec("systemctl reload apache2");
-                Log::info("Apache reloaded");
+                // Check if SSL certificate already exists
+                $sslCertPath = "/etc/letsencrypt/live/{$website->domain_name}/fullchain.pem";
+                if (!file_exists($sslCertPath)) {
+                    $certbotCommand = "sudo certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos --expand -m admin@{$website->domain_name} --redirect";
+                    Log::info("Executing: " . $certbotCommand);
+                    $certbotOutput = shell_exec($certbotCommand . " 2>&1");
+                    Log::info("Certbot output: " . $certbotOutput);
+                } else {
+                    Log::info("SSL certificate already exists for {$website->domain_name}, skipping Certbot.");
+                }
+
+                // Final Apache reload
+                $finalApacheReloadCommand = "sudo systemctl reload apache2 2>&1";
+                $finalApacheReloadOutput = shell_exec($finalApacheReloadCommand);
+                Log::info("Final Apache reload output: " . $finalApacheReloadOutput);
 
                 return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
             }
