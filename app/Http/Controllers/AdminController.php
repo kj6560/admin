@@ -45,7 +45,6 @@ class AdminController extends Controller
             if ($website->save()) {
                 Log::info("Website saved successfully: ", ['id' => $website->id]);
                 $this->deleteWebsite($website->domain_name);
-                die;
                 $directoryPath = "/var/www/" . $website->document_root;
                 if (!file_exists($directoryPath)) {
                     $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
