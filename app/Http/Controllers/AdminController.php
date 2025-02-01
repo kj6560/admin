@@ -76,7 +76,7 @@ class AdminController extends Controller
                 shell_exec("a2ensite {$website->domain_name}.conf");
                 Log::info("site enabled");
                 
-                $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos -m admin@{$website->domain_name} --redirect --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work --logs-dir /home/user/certbot/logs";
+                $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos -m admin@{$website->domain_name} --expand --redirect --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work --logs-dir /home/user/certbot/logs";
                 Log::info("Executing: " . $certbotCommand);
                 shell_exec($certbotCommand);
                 Log::info("Certbot executed");
