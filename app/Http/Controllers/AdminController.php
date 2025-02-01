@@ -75,21 +75,6 @@ class AdminController extends Controller
 
                 shell_exec("a2ensite {$website->domain_name}.conf");
                 shell_exec("systemctl reload apache2");
-
-                // Check if SSL certificate exists before running Certbot
-                $sslCertPath = "/etc/letsencrypt/live/{$website->domain_name}/fullchain.pem";
-                if (!file_exists($sslCertPath)) {
-                    // Run Certbot for SSL setup
-                    $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos -m admin@{$website->domain_name} --redirect";
-                    Log::info("Executing: " . $certbotCommand);
-                    $certbotOutput = shell_exec($certbotCommand . " 2>&1");
-                    Log::info("Certbot output: " . $certbotOutput);
-                } else {
-                    Log::info("SSL certificate already exists for " . $website->domain_name);
-                }
-
-                shell_exec("systemctl reload apache2");
-
                 return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
             }
         } catch (\Exception $e) {
