@@ -73,12 +73,10 @@ class AdminController extends Controller
                 file_put_contents($confFilePath, $confContent);
                 Log::info("Apache config file created at " . $confFilePath);
 
-                $confFilePath = "/etc/apache2/sites-enabled/{$website->domain_name}.conf";
-                file_put_contents($confFilePath, $confContent);
-                Log::info("Apache config file created at " . $confFilePath);
-
                 shell_exec("a2ensite {$website->domain_name}.conf");
+                Log::info("site enabled");
                 shell_exec("systemctl reload apache2");
+                Log::info("Apache reloaded");
                 return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
             }
         } catch (\Exception $e) {
