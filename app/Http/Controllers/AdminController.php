@@ -48,7 +48,7 @@ class AdminController extends Controller
                 // Create the website directory
                 $directoryPath = "/var/www/" . $website->document_root;
                 if (!file_exists($directoryPath)) {
-                    $mkdirCommand = "sudo mkdir -p {$directoryPath} && sudo chown www-data:www-data {$directoryPath} && sudo chmod 755 {$directoryPath}";
+                    $mkdirCommand = "mkdir -p {$directoryPath} && sudo chown www-data:www-data {$directoryPath} && sudo chmod 755 {$directoryPath}";
                     Log::info("Executing: " . $mkdirCommand);
                     $mkdirOutput = shell_exec($mkdirCommand . " 2>&1");
                     Log::info("mkdir output: " . $mkdirOutput);
@@ -78,7 +78,7 @@ class AdminController extends Controller
 
                 // Enable the site
                 if (file_exists($confFilePath)) {
-                    $a2ensiteCommand = "sudo a2ensite {$website->domain_name}.conf 2>&1";
+                    $a2ensiteCommand = "a2ensite {$website->domain_name}.conf 2>&1";
                     $a2ensiteOutput = shell_exec($a2ensiteCommand);
                     Log::info("a2ensite output: " . $a2ensiteOutput);
                 } else {
@@ -87,14 +87,14 @@ class AdminController extends Controller
                 }
 
                 // Reload Apache
-                $apacheReloadCommand = "sudo systemctl reload apache2 2>&1";
+                $apacheReloadCommand = "systemctl reload apache2 2>&1";
                 $apacheReloadOutput = shell_exec($apacheReloadCommand);
                 Log::info("Apache reload output: " . $apacheReloadOutput);
 
                 // Check if SSL certificate already exists
                 $sslCertPath = "/etc/letsencrypt/live/{$website->domain_name}/fullchain.pem";
                 if (!file_exists($sslCertPath)) {
-                    $certbotCommand = "sudo certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos --expand -m admin@{$website->domain_name} --redirect";
+                    $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos --expand -m admin@{$website->domain_name} --redirect";
                     Log::info("Executing: " . $certbotCommand);
                     $certbotOutput = shell_exec($certbotCommand . " 2>&1");
                     Log::info("Certbot output: " . $certbotOutput);
