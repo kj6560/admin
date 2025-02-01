@@ -17,7 +17,6 @@ class AdminController extends Controller
     {
         return view('admin.addWebsite');
     }
-    use Illuminate\Support\Facades\Log;
 
     public function storeWebsite(Request $request)
     {
