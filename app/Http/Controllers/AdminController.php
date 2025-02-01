@@ -35,7 +35,7 @@ class AdminController extends Controller
             $website->$key = $value;
         }
         if ($website->save()) {
-
+            print_r(system("mkdir {$website->directory}"));die;
             // Create a directory by name of directory
             $directoryPath = $website->directory;
             if (!file_exists($directoryPath)) {
