@@ -48,14 +48,14 @@ class AdminController extends Controller
             $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
 
             // Remove previous configuration if it exists
-            shell_exec("a2dissite {$website->domain_name}.conf 2>&1 && rm -f {$confFilePath}");
-            Log::info("Old configuration removed (if existed)");
+            $removeConfigOutput = shell_exec("a2dissite {$website->domain_name}.conf 2>&1 && rm -f {$confFilePath}");
+            Log::info("Old configuration removal output: " . $removeConfigOutput);
 
             // Create website directory if it doesn't exist
             if (!file_exists($directoryPath)) {
                 $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
-                shell_exec($mkdirCommand);
-                Log::info("Website directory created: {$directoryPath}");
+                $mkdirOutput = shell_exec($mkdirCommand);
+                Log::info("Website directory creation output: " . $mkdirOutput);
             }
 
             // Create Apache configuration file
@@ -93,8 +93,8 @@ class AdminController extends Controller
             Log::info("Apache config test: " . $apacheTest);
 
             if (strpos($apacheTest, 'Syntax OK') !== false) {
-                shell_exec("systemctl restart apache2");
-                Log::info("Apache restarted successfully after enabling site.");
+                $restartOutput = shell_exec("systemctl restart apache2");
+                Log::info("Apache restart output: " . $restartOutput);
             } else {
                 Log::error("Apache configuration error detected! Fix manually.");
                 return redirect()->back()->with('error', 'Apache configuration error! Check logs.');
@@ -105,17 +105,22 @@ class AdminController extends Controller
             $certbotOutput = shell_exec($certbotCommand);
             Log::info("Certbot output: " . $certbotOutput);
 
-            // Reload Apache after SSL setup
-            shell_exec("systemctl reload apache2");
-            Log::info("Apache reloaded after SSL configuration");
+            if (strpos($certbotOutput, 'Congratulations') !== false) {
+                // Reload Apache after SSL setup
+                $reloadOutput = shell_exec("systemctl reload apache2");
+                Log::info("Apache reload output: " . $reloadOutput);
 
-            return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
+                return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
+            } else {
+                Log::error("Certbot failed to generate SSL certificates.");
+                return redirect()->back()->with('error', 'SSL certificate generation failed! Check logs.');
+            }
         }
     } catch (\Exception $e) {
         Log::error("Error in storeWebsite function: " . $e->getMessage());
         return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
     }
-    }
+}
 
     
     public function deleteWebsite($domain)
