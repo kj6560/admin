@@ -39,9 +39,9 @@ class AdminController extends Controller
             // Create a directory by name of directory
             $directoryPath = $website->directory;
             if (!file_exists($directoryPath)) {
-                system("mkdir {$website->directory}");
+                print_r(system("mkdir {$website->directory}"));
             }
-
+            die;
             // Prepare the apache2 conf file
             $confContent = "
 <VirtualHost *:{$website->port}>
