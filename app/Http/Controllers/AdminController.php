@@ -52,7 +52,7 @@ class AdminController extends Controller
                     shell_exec($mkdirCommand);
                 }
 
-                        $confContent = "
+                $confContent = "
 <VirtualHost *:80>
     DocumentRoot /var/www/{$website->document_root}
     ServerName {$website->server_name}
