@@ -21,7 +21,6 @@ class AdminController extends Controller
     public function storeWebsite(Request $request)
 {
     try {
-        Log::info("Running as user: " . shell_exec('whoami'));die;
         $data = $request->except('_token');
 
         $validated = $request->validate([
@@ -49,12 +48,12 @@ class AdminController extends Controller
             $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
 
             // Remove previous configuration if it exists
-            $removeConfigOutput = shell_exec("a2dissite {$website->domain_name}.conf 2>&1 && rm -f {$confFilePath}");
+            $removeConfigOutput = shell_exec("sudo a2dissite {$website->domain_name}.conf 2>&1 && sudo rm -f {$confFilePath}");
             Log::info("Old configuration removal output: " . $removeConfigOutput);
 
             // Create website directory if it doesn't exist
             if (!file_exists($directoryPath)) {
-                $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
+                $mkdirCommand = "sudo mkdir -p {$directoryPath} && sudo chown www-data:www-data {$directoryPath} && sudo chmod 755 {$directoryPath}";
                 $mkdirOutput = shell_exec($mkdirCommand);
                 Log::info("Website directory creation output: " . $mkdirOutput);
             }
@@ -77,11 +76,11 @@ class AdminController extends Controller
 </VirtualHost>
 ";
             file_put_contents($confFilePath, $confContent);
-            shell_exec("chmod 644 {$confFilePath}"); // Ensure correct permissions
+            shell_exec("sudo chmod 644 {$confFilePath}");
             Log::info("Apache config file created at {$confFilePath}");
 
             // Enable the new site
-            $enableSiteCommand = "a2ensite {$website->domain_name}.conf 2>&1";
+            $enableSiteCommand = "sudo a2ensite {$website->domain_name}.conf 2>&1";
             $enableOutput = shell_exec($enableSiteCommand);
             Log::info("a2ensite output: " . $enableOutput);
 
@@ -90,11 +89,11 @@ class AdminController extends Controller
             Log::info("Current sites-enabled: " . $sitesEnabled);
 
             // Test Apache configuration before restarting
-            $apacheTest = shell_exec("apachectl configtest 2>&1");
+            $apacheTest = shell_exec("sudo apachectl configtest 2>&1");
             Log::info("Apache config test: " . $apacheTest);
 
             if (strpos($apacheTest, 'Syntax OK') !== false) {
-                $restartOutput = shell_exec("systemctl restart apache2");
+                $restartOutput = shell_exec("sudo systemctl restart apache2");
                 Log::info("Apache restart output: " . $restartOutput);
             } else {
                 Log::error("Apache configuration error detected! Fix manually.");
@@ -102,13 +101,13 @@ class AdminController extends Controller
             }
 
             // Generate SSL certificates
-            $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --expand --agree-tos -m admin@{$website->domain_name} 2>&1";
+            $certbotCommand = "sudo certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --expand --agree-tos -m admin@{$website->domain_name} 2>&1";
             $certbotOutput = shell_exec($certbotCommand);
             Log::info("Certbot output: " . $certbotOutput);
 
             if (strpos($certbotOutput, 'Congratulations') !== false) {
                 // Reload Apache after SSL setup
-                $reloadOutput = shell_exec("systemctl reload apache2");
+                $reloadOutput = shell_exec("sudo systemctl reload apache2");
                 Log::info("Apache reload output: " . $reloadOutput);
 
                 return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
