@@ -39,7 +39,7 @@ class AdminController extends Controller
             // Create a directory by name of directory
             $directoryPath = $website->directory;
             if (!file_exists($directoryPath)) {
-                mkdir($directoryPath, 0755, true);
+                shell_exec("mkdir {$website->domain_name}");
             }
 
             // Prepare the apache2 conf file
