@@ -19,92 +19,104 @@ class AdminController extends Controller
     }
 
     public function storeWebsite(Request $request)
-    {
-        try {
-            $data = $request->except('_token');
-    
-            $validated = $request->validate([
-                'name' => 'required',
-                'domain_name' => 'required',
-                'document_root' => 'required',
-                'server_name' => 'required',
-                'server_alias' => 'required',
-                'directory' => 'required',
-                'port' => 'required',
-                'status' => 'required',
-            ]);
-    
-            Log::info("Validation passed", $validated);
-    
-            $website = new Website();
-            foreach ($data as $key => $value) {
-                $website->$key = $value;
-            }
-    
-            if ($website->save()) {
-                Log::info("Website saved successfully: ", ['id' => $website->id]);
-    
-                // Define necessary paths
-                $directoryPath = "/var/www/" . $website->document_root;
-                $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
-    
-                // Ensure no previous configuration exists
-                shell_exec("a2dissite {$website->domain_name}.conf && rm -f {$confFilePath}");
-                Log::info("Old configuration removed if it existed");
-    
-                // Create directory if it doesn't exist
-                if (!file_exists($directoryPath)) {
-                    $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
-                    shell_exec($mkdirCommand);
-                    Log::info("Website directory created at: {$directoryPath}");
-                }
-    
-                // Create Apache configuration file
-                $confContent = "
-    <VirtualHost *:80>
-        DocumentRoot /var/www/{$website->document_root}
-        ServerName {$website->server_name}
-        ServerAlias {$website->server_alias}
-        <Directory /var/www/{$website->directory}>
-            Options Indexes FollowSymLinks
-            AllowOverride All
-            Require all granted
-        </Directory>
-        RewriteEngine on
-        RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
-        RewriteCond %{SERVER_NAME} ={$website->domain_name}
-        RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
-    </VirtualHost>
-    ";
-    
-                file_put_contents($confFilePath, $confContent);
-                Log::info("Apache config file created at {$confFilePath}");
-    
-                // Enable the new site
-                shell_exec("a2ensite {$website->domain_name}.conf");
-                Log::info("Site enabled");
-    
-                // Reload Apache to apply changes
-                shell_exec("systemctl reload apache2");
-                Log::info("Apache reloaded after enabling site");
-    
-                // Generate SSL certificates
-                $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --expand --agree-tos -m admin@{$website->domain_name} 2>&1";
-                Log::info("Executing: " . $certbotCommand);
-                $certbotOutput = shell_exec($certbotCommand);
-                Log::info("Certbot executed: " . $certbotOutput);
-    
-                // Reload Apache again after SSL setup
-                shell_exec("systemctl reload apache2");
-                Log::info("Apache reloaded after SSL configuration");
-    
-                return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
-            }
-        } catch (\Exception $e) {
-            Log::error("Error in storeWebsite function: " . $e->getMessage());
-            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
+{
+    try {
+        $data = $request->except('_token');
+
+        $validated = $request->validate([
+            'name' => 'required',
+            'domain_name' => 'required',
+            'document_root' => 'required',
+            'server_name' => 'required',
+            'server_alias' => 'required',
+            'directory' => 'required',
+            'port' => 'required',
+            'status' => 'required',
+        ]);
+
+        Log::info("Validation passed", $validated);
+
+        $website = new Website();
+        foreach ($data as $key => $value) {
+            $website->$key = $value;
         }
+
+        if ($website->save()) {
+            Log::info("Website saved successfully: ", ['id' => $website->id]);
+
+            $directoryPath = "/var/www/" . $website->document_root;
+            $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
+
+            // Remove previous configuration if it exists
+            shell_exec("a2dissite {$website->domain_name}.conf 2>&1 && rm -f {$confFilePath}");
+            Log::info("Old configuration removed (if existed)");
+
+            // Create website directory if it doesn't exist
+            if (!file_exists($directoryPath)) {
+                $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
+                shell_exec($mkdirCommand);
+                Log::info("Website directory created: {$directoryPath}");
+            }
+
+            // Create Apache configuration file
+            $confContent = "
+<VirtualHost *:80>
+    DocumentRoot /var/www/{$website->document_root}
+    ServerName {$website->server_name}
+    ServerAlias {$website->server_alias}
+    <Directory /var/www/{$website->directory}>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    RewriteEngine on
+    RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
+    RewriteCond %{SERVER_NAME} ={$website->domain_name}
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+</VirtualHost>
+";
+            file_put_contents($confFilePath, $confContent);
+            shell_exec("chmod 644 {$confFilePath}"); // Ensure correct permissions
+            Log::info("Apache config file created at {$confFilePath}");
+
+            // Enable the new site
+            $enableSiteCommand = "a2ensite {$website->domain_name}.conf 2>&1";
+            $enableOutput = shell_exec($enableSiteCommand);
+            Log::info("a2ensite output: " . $enableOutput);
+
+            // Check if the site is linked properly
+            $sitesEnabled = shell_exec("ls -l /etc/apache2/sites-enabled/");
+            Log::info("Current sites-enabled: " . $sitesEnabled);
+
+            // Test Apache configuration before restarting
+            $apacheTest = shell_exec("apachectl configtest 2>&1");
+            Log::info("Apache config test: " . $apacheTest);
+
+            if (strpos($apacheTest, 'Syntax OK') !== false) {
+                shell_exec("systemctl restart apache2");
+                Log::info("Apache restarted successfully after enabling site.");
+            } else {
+                Log::error("Apache configuration error detected! Fix manually.");
+                return redirect()->back()->with('error', 'Apache configuration error! Check logs.');
+            }
+
+            // Generate SSL certificates
+            $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --expand --agree-tos -m admin@{$website->domain_name} 2>&1";
+            $certbotOutput = shell_exec($certbotCommand);
+            Log::info("Certbot output: " . $certbotOutput);
+
+            // Reload Apache after SSL setup
+            shell_exec("systemctl reload apache2");
+            Log::info("Apache reloaded after SSL configuration");
+
+            return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
+        }
+    } catch (\Exception $e) {
+        Log::error("Error in storeWebsite function: " . $e->getMessage());
+        return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
     }
+    }
+
     
     public function deleteWebsite($domain)
     {
