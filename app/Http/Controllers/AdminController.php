@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Website;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -16,34 +17,45 @@ class AdminController extends Controller
     {
         return view('admin.addWebsite');
     }
+    use Illuminate\Support\Facades\Log;
+
     public function storeWebsite(Request $request)
     {
-        $data = $request->all();
-        unset($data['_token']);
-        $validated = $request->validate([
-            'name' => 'required',
-            'domain_name' => 'required',
-            'document_root' => 'required',
-            'server_name' => 'required',
-            'server_alias' => 'required',
-            'directory' => 'required',
-            'port' => 'required',
-            'status' => 'required',
-        ]);
-        $website = new Website();
-        foreach ($data as $key => $value) {
-            $website->$key = $value;
-        }
-        if ($website->save()) {
-            print_r(system("mkdir {$website->directory}"));die;
-            // Create a directory by name of directory
-            $directoryPath = $website->directory;
-            if (!file_exists($directoryPath)) {
-                print_r(system("mkdir {$website->directory}"));
+        try {
+            $data = $request->all();
+            unset($data['_token']);
+
+            $validated = $request->validate([
+                'name' => 'required',
+                'domain_name' => 'required',
+                'document_root' => 'required',
+                'server_name' => 'required',
+                'server_alias' => 'required',
+                'directory' => 'required',
+                'port' => 'required',
+                'status' => 'required',
+            ]);
+
+            Log::info("Validation passed", $validated);
+
+            $website = new Website();
+            foreach ($data as $key => $value) {
+                $website->$key = $value;
             }
-            die;
-            // Prepare the apache2 conf file
-            $confContent = "
+
+            if ($website->save()) {
+                Log::info("Website saved successfully: ", ['id' => $website->id]);
+
+                // Create a directory by name of directory
+                $directoryPath = "/var/www/" . $website->directory;
+                if (!file_exists($directoryPath)) {
+                    $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
+                    Log::info("Executing: " . $mkdirCommand);
+                    system($mkdirCommand);
+                }
+
+                // Prepare the apache2 conf file
+                $confContent = "
 <VirtualHost *:{$website->port}>
     DocumentRoot /var/www/{$website->document_root}
     ServerName {$website->server_name}
@@ -53,24 +65,36 @@ class AdminController extends Controller
         AllowOverride All
         Require all granted
     </Directory>
-RewriteEngine on
-RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
-RewriteCond %{SERVER_NAME} ={$website->domain_name}
-RewriteRule  ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+    RewriteEngine on
+    RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
+    RewriteCond %{SERVER_NAME} ={$website->domain_name}
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
 </VirtualHost>
 ";
-            $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
-            file_put_contents($confFilePath, $confContent);
 
-            // Copy the conf file to apache2 sites-available
-            // This step is already done by file_put_contents above
+                $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
+                if (!file_put_contents($confFilePath, $confContent)) {
+                    Log::error("Failed to write Apache config file: " . $confFilePath);
+                    return redirect()->back()->with('error', 'Failed to create Apache config file.');
+                }
 
-            // Enable the site
-            shell_exec("a2ensite {$website->domain_name}.conf");
+                Log::info("Apache config file created at " . $confFilePath);
 
-            // Reload apache2 to apply changes
-            shell_exec("systemctl reload apache2");
+                // Enable the site
+                $enableSiteCommand = "a2ensite {$website->domain_name}.conf";
+                Log::info("Executing: " . $enableSiteCommand);
+                shell_exec($enableSiteCommand);
+
+                // Reload Apache
+                $reloadApacheCommand = "systemctl reload apache2";
+                Log::info("Executing: " . $reloadApacheCommand);
+                shell_exec($reloadApacheCommand);
+
+                return redirect()->route('dashboard')->with('success', 'Website created successfully.');
+            }
+        } catch (\Exception $e) {
+            Log::error("Error in storeWebsite function: " . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
         }
-        return redirect()->route('dashboard');
     }
 }
