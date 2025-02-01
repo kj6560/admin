@@ -45,23 +45,15 @@ class AdminController extends Controller
             if ($website->save()) {
                 Log::info("Website saved successfully: ", ['id' => $website->id]);
 
-                // Create a directory by name of directory
                 $directoryPath = "/var/www/" . $website->document_root;
                 if (!file_exists($directoryPath)) {
                     $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
                     Log::info("Executing: " . $mkdirCommand);
-
-                    $output = shell_exec($mkdirCommand . " 2>&1"); // Capture errors
-                    Log::info("mkdir output: " . $output);
-
-                    if (!file_exists($directoryPath)) {
-                        Log::error("Directory was not created: " . $directoryPath);
-                    }
+                    shell_exec($mkdirCommand);
                 }
 
-                // Prepare the apache2 conf file
                 $confContent = "
-<VirtualHost *:{$website->port}>
+<VirtualHost *:80>
     DocumentRoot /var/www/{$website->document_root}
     ServerName {$website->server_name}
     ServerAlias {$website->server_alias}
@@ -78,24 +70,27 @@ class AdminController extends Controller
 ";
 
                 $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
-                if (!file_put_contents($confFilePath, $confContent)) {
-                    Log::error("Failed to write Apache config file: " . $confFilePath);
-                    return redirect()->back()->with('error', 'Failed to create Apache config file.');
-                }
-
+                file_put_contents($confFilePath, $confContent);
                 Log::info("Apache config file created at " . $confFilePath);
 
-                // Enable the site
-                $enableSiteCommand = "a2ensite {$website->domain_name}.conf";
-                Log::info("Executing: " . $enableSiteCommand);
-                shell_exec($enableSiteCommand);
+                shell_exec("a2ensite {$website->domain_name}.conf");
+                shell_exec("systemctl reload apache2");
 
-                // Reload Apache
-                $reloadApacheCommand = "systemctl reload apache2";
-                Log::info("Executing: " . $reloadApacheCommand);
-                shell_exec($reloadApacheCommand);
+                // Check if SSL certificate exists before running Certbot
+                $sslCertPath = "/etc/letsencrypt/live/{$website->domain_name}/fullchain.pem";
+                if (!file_exists($sslCertPath)) {
+                    // Run Certbot for SSL setup
+                    $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos -m admin@{$website->domain_name} --redirect";
+                    Log::info("Executing: " . $certbotCommand);
+                    $certbotOutput = shell_exec($certbotCommand . " 2>&1");
+                    Log::info("Certbot output: " . $certbotOutput);
+                } else {
+                    Log::info("SSL certificate already exists for " . $website->domain_name);
+                }
 
-                return redirect()->route('dashboard')->with('success', 'Website created successfully.');
+                shell_exec("systemctl reload apache2");
+
+                return redirect()->route('dashboard')->with('success', 'Website created successfully with SSL.');
             }
         } catch (\Exception $e) {
             Log::error("Error in storeWebsite function: " . $e->getMessage());
