@@ -52,22 +52,22 @@ class AdminController extends Controller
                     shell_exec($mkdirCommand);
                 }
 
-                $confContent = "
-            <VirtualHost *:80>
-                DocumentRoot /var/www/{$website->document_root}
-                ServerName {$website->server_name}
-                ServerAlias {$website->server_alias}
-                <Directory /var/www/{$website->directory}>
-                    Options Indexes FollowSymLinks
-                    AllowOverride All
-                    Require all granted
-                </Directory>
-                RewriteEngine on
-                RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
-                RewriteCond %{SERVER_NAME} ={$website->domain_name}
-                RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
-            </VirtualHost>
-            ";
+                        $confContent = "
+<VirtualHost *:80>
+    DocumentRoot /var/www/{$website->document_root}
+    ServerName {$website->server_name}
+    ServerAlias {$website->server_alias}
+    <Directory /var/www/{$website->directory}>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    RewriteEngine on
+    RewriteCond %{SERVER_NAME} =www.{$website->domain_name} [OR]
+    RewriteCond %{SERVER_NAME} ={$website->domain_name}
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+</VirtualHost>
+";
 
                 $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
                 file_put_contents($confFilePath, $confContent);
@@ -75,12 +75,12 @@ class AdminController extends Controller
 
                 shell_exec("a2ensite {$website->domain_name}.conf");
                 Log::info("site enabled");
-
-                $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --agree-tos -m admin@{$website->domain_name} --expand --redirect --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work --logs-dir /home/user/certbot/logs";
+                
+                $certbotCommand = "certbot --apache -d {$website->domain_name} -d www.{$website->domain_name} --non-interactive --expand --agree-tos -m admin@{$website->domain_name} --redirect --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work --logs-dir /home/user/certbot/logs";
                 Log::info("Executing: " . $certbotCommand);
                 shell_exec($certbotCommand);
                 Log::info("Certbot executed");
-
+                
                 shell_exec("systemctl reload apache2");
                 Log::info("Apache reloaded");
 
