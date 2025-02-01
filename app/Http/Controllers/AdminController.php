@@ -10,6 +10,7 @@ class AdminController extends Controller
     public function index()
     {
         $websites = Website::all();
+        print_r(system('ls -l'));
         return view('admin.index', ['websites' => $websites]);
     }
     public function addWebsite(Request $request)
