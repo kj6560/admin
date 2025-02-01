@@ -21,6 +21,7 @@ class AdminController extends Controller
     public function storeWebsite(Request $request)
 {
     try {
+        Log::info("Running as user: " . shell_exec('whoami'));die;
         $data = $request->except('_token');
 
         $validated = $request->validate([
