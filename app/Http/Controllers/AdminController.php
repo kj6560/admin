@@ -46,11 +46,17 @@ class AdminController extends Controller
                 Log::info("Website saved successfully: ", ['id' => $website->id]);
 
                 // Create a directory by name of directory
-                $directoryPath = "/var/www/" . $website->directory;
+                $directoryPath = "/var/www/" . $website->document_root;
                 if (!file_exists($directoryPath)) {
                     $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
                     Log::info("Executing: " . $mkdirCommand);
-                    system($mkdirCommand);
+
+                    $output = shell_exec($mkdirCommand . " 2>&1"); // Capture errors
+                    Log::info("mkdir output: " . $output);
+
+                    if (!file_exists($directoryPath)) {
+                        Log::error("Directory was not created: " . $directoryPath);
+                    }
                 }
 
                 // Prepare the apache2 conf file
