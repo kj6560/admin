@@ -53,7 +53,7 @@ class AdminController extends Controller
 
             // Create website directory if it doesn't exist
             if (!file_exists($directoryPath)) {
-                $mkdirCommand = "sudo mkdir -p {$directoryPath} && sudo chown www-data:www-data {$directoryPath} && sudo chmod 755 {$directoryPath}";
+                $mkdirCommand = "mkdir {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
                 $mkdirOutput = shell_exec($mkdirCommand);
                 Log::info("Website directory creation output: " . $mkdirOutput);
             }
