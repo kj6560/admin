@@ -153,11 +153,11 @@ class AdminController extends Controller
                 $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
 
                 // Remove directory
-                $removeConfigOutput = shell_exec("sudo rm -rf {$directoryPath}");
+                $removeConfigOutput = shell_exec("rm -r {$directoryPath}");
                 Log::info("Directory removal output: " . $removeConfigOutput);
 
                 // Remove previous configuration if it exists
-                $removeConfigOutput = shell_exec("sudo a2dissite {$website->domain_name}.conf 2>&1 && sudo rm -f {$confFilePath}");
+                $removeConfigOutput = shell_exec("sudo a2dissite {$website->domain_name}.conf 2>&1 && rm -f {$confFilePath}");
                 Log::info("Old configuration removal output: " . $removeConfigOutput);
 
 
@@ -165,14 +165,14 @@ class AdminController extends Controller
                 
                 $confEnabledFilePath = "/etc/apache2/sites-available/{$domain}.conf";
                 if (file_exists($confEnabledFilePath)) {
-                    $removeConfigOutput = shell_exec("sudo rm -f {$confEnabledFilePath}");
+                    $removeConfigOutput = shell_exec("rm -f {$confEnabledFilePath}");
                     Log::info("Deleted Apache config file: " . $removeConfigOutput);
                 }
 
                 // Remove Apache ssl configuration file
                 $confEnabledSslFilePath = "/etc/apache2/sites-enabled/{$domain}-le-ssl".".conf";
                 if (file_exists($confEnabledSslFilePath)) {
-                    $removeSslConfigOutput = shell_exec("sudo rm -f {$confEnabledSslFilePath}");
+                    $removeSslConfigOutput = shell_exec("rm -f {$confEnabledSslFilePath}");
                     Log::info("Deleted Apache config file: " . $removeSslConfigOutput);
                 }
 
