@@ -163,17 +163,17 @@ class AdminController extends Controller
 
                 // Remove Apache configuration file
                 
-                $confEnabledFilePath = "/etc/apache2/sites-enabled/{$domain}.conf";
+                $confEnabledFilePath = "/etc/apache2/sites-available/{$domain}.conf";
                 if (file_exists($confEnabledFilePath)) {
-                    unlink($confEnabledFilePath);
-                    Log::info("Deleted Apache config file: " . $confEnabledFilePath);
+                    $removeConfigOutput = shell_exec("sudo rm -f {$confEnabledFilePath}");
+                    Log::info("Deleted Apache config file: " . $removeConfigOutput);
                 }
 
                 // Remove Apache ssl configuration file
                 $confEnabledSslFilePath = "/etc/apache2/sites-enabled/{$domain}-le-ssl".".conf";
                 if (file_exists($confEnabledSslFilePath)) {
-                    unlink($confEnabledSslFilePath);
-                    Log::info("Deleted Apache config file: " . $confEnabledSslFilePath);
+                    $removeSslConfigOutput = shell_exec("sudo rm -f {$confEnabledSslFilePath}");
+                    Log::info("Deleted Apache config file: " . $removeSslConfigOutput);
                 }
 
                 // Restart Apache
