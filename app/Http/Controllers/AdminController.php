@@ -10,8 +10,12 @@ class AdminController extends Controller
 {
     public function index()
     {
+        return view('admin.index');
+    }
+    public function websites()
+    {
         $websites = Website::all();
-        return view('admin.index', ['websites' => $websites]);
+        return view('admin.websites', ['websites' => $websites]);
     }
     public function addWebsite(Request $request)
     {

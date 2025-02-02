@@ -270,9 +270,15 @@
         <ul class="sidebar-nav" id="sidebar-nav">
 
             <li class="nav-item">
-                <a class="nav-link " href="index.html">
+                <a class="nav-link " href="/">
                     <i class="bi bi-grid"></i>
                     <span>Dashboard</span>
+                </a>
+            </li><!-- End Dashboard Nav -->
+            <li class="nav-item">
+                <a class="nav-link " href="/websites">
+                    <i class="bi bi-grid"></i>
+                    <span>Websites</span>
                 </a>
             </li><!-- End Dashboard Nav -->
 
