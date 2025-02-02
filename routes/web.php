@@ -13,5 +13,6 @@ Route::post('/storeUser', [AuthController::class, 'storeUser'])->name('storeUser
 Route::middleware(['auth:web'])->group(function () {
     Route::get('/',[AdminController::class,'index'])->name('dashboard');
     Route::get('/addWebsite',[AdminController::class,'addWebsite'])->name('addWebsite');
+    Route::get('/deleteWebsite',[AdminController::class,'deleteWebsite'])->name('deleteWebsite');
     Route::post('/storeWebsite', [AdminController::class, 'storeWebsite'])->name('storeWebsite');
 });

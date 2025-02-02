@@ -122,43 +122,67 @@ class AdminController extends Controller
 }
 
     
-    public function deleteWebsite($domain)
+    public function deleteWebsite(Request $request,$id)
     {
         try {
-            Log::info("Attempting to delete SSL certificate for: " . $domain);
-
-            // Check if SSL certificate exists before deleting
-            $checkCertCommand = "certbot certificates | grep -w '{$domain}'";
-            $certExists = shell_exec($checkCertCommand);
-
-            if ($certExists) {
-                Log::info("Certificate exists for {$domain}, proceeding with deletion.");
-
-                // Run certbot delete command
-                $deleteCommand = "echo 'Y' | sudo certbot delete --cert-name {$domain} 2>&1";
-                $output = shell_exec($deleteCommand);
-                Log::info("Certbot delete output: " . $output);
-            } else {
-                Log::warning("No certificate found for {$domain}");
+            $website = Website::find($id);
+            if (!$website) {
+                return redirect()->back()->with('error', 'Website not found!');
             }
 
-            // Disable Apache site
-            $disableSiteCommand = "sudo a2dissite {$domain}-le-ssl.conf && sudo systemctl reload apache2";
-            Log::info("Executing: " . $disableSiteCommand);
-            shell_exec($disableSiteCommand);
+            if(!empty($website->id)){
+                $domain = $website->domain_name;
+                    Log::info("Attempting to delete SSL certificate for: " . $domain);
 
-            // Remove Apache configuration file
-            $confFilePath = "/etc/apache2/sites-available/{$domain}.conf";
-            if (file_exists($confFilePath)) {
-                unlink($confFilePath);
-                Log::info("Deleted Apache config file: " . $confFilePath);
+                // Check if SSL certificate exists before deleting
+                $checkCertCommand = "certbot certificates | grep -w '{$domain}'";
+                $certExists = shell_exec($checkCertCommand);
+
+                if ($certExists) {
+                    Log::info("Certificate exists for {$domain}, proceeding with deletion.");
+
+                    // Run certbot delete command
+                    $deleteCommand = "echo 'Y' | sudo certbot delete --cert-name {$domain} 2>&1";
+                    $output = shell_exec($deleteCommand);
+                    Log::info("Certbot delete output: " . $output);
+                } else {
+                    Log::warning("No certificate found for {$domain}");
+                }
+
+                $directoryPath = "/var/www/" . $website->directory;
+                $confFilePath = "/etc/apache2/sites-available/{$website->domain_name}.conf";
+
+                // Remove directory
+                $removeConfigOutput = shell_exec("sudo rm -rf {$directoryPath}");
+                Log::info("Directory removal output: " . $removeConfigOutput);
+
+                // Remove previous configuration if it exists
+                $removeConfigOutput = shell_exec("sudo a2dissite {$website->domain_name}.conf 2>&1 && sudo rm -f {$confFilePath}");
+                Log::info("Old configuration removal output: " . $removeConfigOutput);
+
+
+                // Remove Apache configuration file
+                
+                $confEnabledFilePath = "/etc/apache2/sites-enabled/{$domain}.conf";
+                if (file_exists($confEnabledFilePath)) {
+                    unlink($confEnabledFilePath);
+                    Log::info("Deleted Apache config file: " . $confEnabledFilePath);
+                }
+
+                // Remove Apache ssl configuration file
+                $confEnabledSslFilePath = "/etc/apache2/sites-enabled/{$domain}-le-ssl".".conf";
+                if (file_exists($confEnabledSslFilePath)) {
+                    unlink($confEnabledSslFilePath);
+                    Log::info("Deleted Apache config file: " . $confEnabledSslFilePath);
+                }
+
+                // Restart Apache
+                shell_exec("sudo systemctl reload apache2");
+                Log::info("Apache reloaded after certificate deletion");
+
             }
-
-            // Restart Apache
-            shell_exec("sudo systemctl reload apache2");
-            Log::info("Apache reloaded after certificate deletion");
-
-            return true;
+            $website->delete();
+            return redirect()->route('dashboard')->with('success', 'Website deleted successfully.');
         } catch (\Exception $e) {
             Log::error("Error deleting SSL certificate: " . $e->getMessage());
             return $e->getMessage();
