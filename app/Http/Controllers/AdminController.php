@@ -51,12 +51,11 @@ class AdminController extends Controller
             $removeConfigOutput = shell_exec("sudo a2dissite {$website->domain_name}.conf 2>&1 && sudo rm -f {$confFilePath}");
             Log::info("Old configuration removal output: " . $removeConfigOutput);
 
-            // Create website directory if it doesn't exist
-            if (!file_exists($directoryPath)) {
-                $mkdirCommand = "mkdir {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
-                $mkdirOutput = shell_exec($mkdirCommand);
-                Log::info("Website directory creation output: " . $mkdirOutput);
-            }
+                if (!file_exists($directoryPath)) {
+                    $mkdirCommand = "mkdir -p {$directoryPath} && chown www-data:www-data {$directoryPath} && chmod 755 {$directoryPath}";
+                    Log::info("Executing: " . $mkdirCommand);
+                    shell_exec($mkdirCommand);
+                }
 
             // Create Apache configuration file
             $confContent = "
